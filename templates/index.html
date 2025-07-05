@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phân tích cảm xúc</title>
+    <style>
+        body { 
+            font-family: sans-serif; 
+            margin: 20px; 
+            margin-top: 0;
+            line-height: 1.6;
+            display: flex;
+            gap: 20px;
+        }
+        .left-panel, .right-panel {
+            flex: 1;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1, h2 { 
+            color: #333;
+            margin-top: 0;
+        }
+        form { 
+            margin-bottom: 20px;
+        }
+        textarea { 
+            width: 100%;
+            height: 100px;
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 1rem;
+            resize: vertical;
+        }
+        button { 
+            padding: 10px 15px;
+            margin-right: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.2s;
+        }
+        button[type="submit"] { 
+            background-color: #28a745;
+            color: white;
+        }
+        button[type="submit"]:hover { 
+            background-color: #218838;
+        }
+        button[type="button"] { 
+            background-color: #007bff;
+            color: white;
+        }
+        button[type="button"]:hover { 
+            background-color: #0056b3;
+        }
+        #results { 
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: white;
+            min-height: 50px;
+        }
+        .result-item { 
+            margin-bottom: 10px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: white;
+            font-size: 0.95em;
+        }
+        .result-item p {
+            margin: 4px 0;
+        }
+        .result-item:last-child { 
+            margin-bottom: 0;
+        }
+        #loading-indicator { 
+            font-style: italic;
+            color: #555;
+            margin: 4px 0;
+        }
+        .error-message { 
+            color: #dc3545;
+            font-weight: bold;
+            margin: 4px 0;
+        }
+        .test-data {
+            max-height: 600px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: white;
+        }
+        .test-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .test-item:hover {
+            background-color: #f5f5f5;
+        }
+        .test-item.selected {
+            background-color: #e3f2fd;
+        }
+        .test-item-content {
+            flex: 1;
+            margin-right: 10px;
+        }
+        .delete-btn {
+            background-color: #ff5252;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8em;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .test-item:hover .delete-btn {
+            opacity: 1;
+        }
+        .delete-btn:hover {
+            background-color: #ff1744;
+        }
+        .search-box {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+        .probabilities {
+            display: flex;
+            gap: 8px;
+            font-size: 0.85em;
+            margin-top: 4px;
+            flex-wrap: wrap;
+        }
+        .probability-item {
+            padding: 2px 6px;
+            border-radius: 3px;
+            background-color: #f8f9fa;
+        }
+        .test-panel {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .test-list {
+            flex: 1;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: white;
+            max-height: calc(100vh - 250px);
+        }
+        .test-list::-webkit-scrollbar {
+            width: 8px;
+        }
+        .test-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        .test-list::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        .test-list::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="left-panel">
+        <h1>Phân tích cảm xúc theo khía cạnh</h1>
+
+        <form id="analysisForm">
+            <p><strong>Nhập đoạn văn bản bình luận:</strong></p>
+            <textarea name="text" id="inputText" placeholder="Ví dụ: boot time is super fast , around anywhere from 35 seconds to 1 minute."></textarea><br>
+            <button type="submit">Phân tích</button>
+            <button type="button" onclick="clearForm()" style="background-color: red;">Xóa</button>
+        </form>
+
+        <h2>Kết quả phân tích</h2>
+        <div id="results">
+            <p id="loading-indicator">Không có kết quả nào.</p>
+        </div>
+    </div>
+
+    <div class="right-panel">
+        <h2>Dữ liệu test</h2>
+        <div class="test-panel">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Tìm kiếm..." onkeyup="filterTestData()">
+            </div>
+            <div class="test-list" id="testList">
+                {% for item in test_data %}
+                <div class="test-item" data-index="{{ loop.index0 }}" onclick="selectTestItem(this)">
+                    <div class="test-item-content">{{ item }}</div>
+                    <button class="delete-btn" data-index="{{ loop.index0 }}">Xóa</button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('analysisForm');
+        const resultsDiv = document.getElementById('results');
+        const inputTextarea = document.getElementById('inputText');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const searchBox = document.getElementById('searchBox');
+        const testData = document.getElementById('testData');
+
+        function selectTestItem(element) {
+            // Remove selected class from all items
+            document.querySelectorAll('.test-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            // Add selected class to clicked item
+            element.classList.add('selected');
+            // Set text to textarea
+            document.getElementById('inputText').value = element.querySelector('.test-item-content').textContent;
+        }
+
+        function filterTestData() {
+            const searchText = document.getElementById('searchInput').value.toLowerCase();
+            document.querySelectorAll('.test-item').forEach(item => {
+                const text = item.querySelector('.test-item-content').textContent.toLowerCase();
+                item.style.display = text.includes(searchText) ? '' : 'none';
+            });
+        }
+
+        function deleteTestLine(event, index) {
+            event.stopPropagation(); // Prevent item selection when clicking delete
+            
+            if (confirm('Bạn có chắc muốn xóa dòng này?')) {
+                fetch('/delete_test_line', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ index: index })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Remove the item from DOM
+                        const item = document.querySelector(`.test-item[data-index="${index}"]`);
+                        if (item) {
+                            item.remove();
+                        }
+                        
+                        // Update indices of remaining items
+                        const items = document.querySelectorAll('.test-item');
+                        items.forEach((item, i) => {
+                            item.setAttribute('data-index', i);
+                            const deleteBtn = item.querySelector('.delete-btn');
+                            deleteBtn.onclick = (e) => deleteTestLine(e, i);
+                        });
+                        
+                        // If the deleted item was selected, clear the form
+                        if (item && item.classList.contains('selected')) {
+                            document.getElementById('textInput').value = '';
+                            document.querySelectorAll('.test-item').forEach(i => i.classList.remove('selected'));
+                        }
+                    } else {
+                        alert('Lỗi khi xóa: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Có lỗi xảy ra khi xóa dòng');
+                });
+            }
+        }
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const text = inputTextarea.value.trim();
+            if (!text) {
+                resultsDiv.innerHTML = '<p class="error-message">Vui lòng nhập văn bản.</p>';
+                return;
+            }
+
+            resultsDiv.innerHTML = '<p id="loading-indicator">Đang phân tích...</p>';
+
+            const formData = new FormData(form);
+
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                resultsDiv.innerHTML = '';
+
+                if (response.ok) {
+                    if (data.results && data.results.length > 0) {
+                        // Display translated input text
+                        const translatedTextDiv = document.createElement('div');
+                        translatedTextDiv.classList.add('result-item');
+                        translatedTextDiv.innerHTML = `<p style="margin-bottom: 4px;"><strong>Văn bản đã dịch:</strong> ${data.translated_text}</p>`;
+                        resultsDiv.appendChild(translatedTextDiv);
+
+                        data.results.forEach(item => {
+                            const resultDiv = document.createElement('div');
+                            resultDiv.classList.add('result-item');
+                            
+                            const aspectInfo = document.createElement('p');
+                            aspectInfo.innerHTML = `<strong>Khía cạnh:</strong> ${item.aspect} <span style="color: #666;">(${item.translated_aspect})</span>`;
+                            resultDiv.appendChild(aspectInfo);
+                            
+                            const sentimentInfo = document.createElement('p');
+                            sentimentInfo.innerHTML = `<strong>Cảm xúc:</strong> <span style="color: ${
+                                item.sentiment === 'positive' ? '#28a745' : 
+                                item.sentiment === 'negative' ? '#dc3545' : 
+                                '#ffc107'
+                            }">${item.translated_sentiment}</span>`;
+                            resultDiv.appendChild(sentimentInfo);
+                            
+                            const probsDiv = document.createElement('div');
+                            probsDiv.classList.add('probabilities');
+                            probsDiv.innerHTML = `
+                                <span class="probability-item" style="color: #28a745">Tích cực: ${(item.probabilities.positive * 100).toFixed(1)}%</span>
+                                <span class="probability-item" style="color: #dc3545">Tiêu cực: ${(item.probabilities.negative * 100).toFixed(1)}%</span>
+                                <span class="probability-item" style="color: #ffc107">Trung lập: ${(item.probabilities.neutral * 100).toFixed(1)}%</span>
+                            `;
+                            resultDiv.appendChild(probsDiv);
+                            
+                            resultsDiv.appendChild(resultDiv);
+                        });
+                    } else {
+                        resultsDiv.innerHTML = '<p style="margin: 4px 0;">Không tìm thấy khía cạnh nào trong câu.</p>';
+                    }
+                } else {
+                    resultsDiv.innerHTML = `<p class="error-message" style="margin: 4px 0;">Lỗi: ${data.results[0]}</p>`;
+                }
+            } catch (error) {
+                console.error('Fetch error:', error);
+                resultsDiv.innerHTML = `<p class="error-message">Đã xảy ra lỗi khi gửi yêu cầu: ${error}</p>`;
+            }
+        });
+
+        function clearForm() {
+            inputTextarea.value = '';
+            resultsDiv.innerHTML = '<p id="loading-indicator">Không có kết quả nào.</p>';
+            document.querySelectorAll('.test-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+        }
+
+        // Initial display
+        clearForm();
+
+        // Update event listeners for delete buttons to prevent triggering selectTestItem
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', function(event) {
+                    event.stopPropagation(); // Prevent triggering selectTestItem
+                    const index = parseInt(this.getAttribute('data-index'));
+                    deleteTestLine(event, index);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
